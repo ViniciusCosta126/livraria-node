@@ -1,5 +1,5 @@
 import Erro404 from "../erros/Erro404.js";
-import { livro } from "../models/index.js";
+import { autor, livro } from "../models/index.js";
 
 class LivroController {
   static async listarLivros(req, res, next) {
@@ -24,7 +24,7 @@ class LivroController {
   static async listarLivroPorId(req, res, next) {
     try {
       const { id } = req.params;
-      const livroEncontrado = await livro.findById(id);
+      const livroEncontrado = await livro.findById(id).populate("autor").exec();
 
       if (livroEncontrado !== null) {
         res.status(200).json(livroEncontrado);
@@ -65,15 +65,46 @@ class LivroController {
     }
   }
 
-  static async listarLivrosPorEditora(req, res, next) {
-    const { editora } = req.query;
+  static async listarLivrosPorFiltro(req, res, next) {
     try {
-      const livrosPorEditora = await livro.find({ editora });
-      res.status(200).json(livrosPorEditora);
+      const busca = await processaBusca(req.query);
+      if (busca !== null) {
+        const livrosResultado = await livro
+          .find(busca)
+          .populate("autor")
+          .exec();
+        res.status(200).json(livrosResultado);
+      } else {
+        res.status(200).send([]);
+      }
     } catch (error) {
       next(error);
     }
   }
 }
+async function processaBusca(parametros) {
+  const { editora, titulo, minPaginas, maxPaginas, nomeAutor } = parametros;
+  let busca = {};
 
+  if (editora) busca.editora = { $regex: editora, $options: "i" };
+  if (titulo) busca.titulo = { $regex: titulo, $options: "i" };
+
+  if (minPaginas || maxPaginas) busca.paginas = {};
+
+  if (minPaginas) busca.paginas.$gte = minPaginas;
+  if (maxPaginas) busca.paginas.$lte = maxPaginas;
+
+  if (nomeAutor) {
+    const buscaAutor = {};
+    buscaAutor.nome = {$regex: nomeAutor, $options: "i"};
+    const autores = await autor.findOne(buscaAutor);
+
+    if (autores !== null) {
+      busca.autor = autores._id;
+    } else {
+      busca = null;
+    }
+  }
+  return busca;
+}
 export default LivroController;
