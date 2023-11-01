@@ -4,8 +4,9 @@ import { autor, livro } from "../models/index.js";
 class LivroController {
   static async listarLivros(req, res, next) {
     try {
-      const listaLivros = await livro.find({}).populate("autor").exec();
-      res.status(200).json(listaLivros);
+      const buscaLivros = livro.find();
+      req.resultado = buscaLivros;
+      next();
     } catch (error) {
       next(error);
     }
@@ -24,7 +25,7 @@ class LivroController {
   static async listarLivroPorId(req, res, next) {
     try {
       const { id } = req.params;
-      const livroEncontrado = await livro.findById(id).populate("autor").exec();
+      const livroEncontrado = await livro.findById(id);
 
       if (livroEncontrado !== null) {
         res.status(200).json(livroEncontrado);
@@ -69,11 +70,10 @@ class LivroController {
     try {
       const busca = await processaBusca(req.query);
       if (busca !== null) {
-        const livrosResultado = await livro
-          .find(busca)
-          .populate("autor")
-          .exec();
-        res.status(200).json(livrosResultado);
+        const livrosResultado = livro
+          .find(busca);
+        req.resultado = livrosResultado;
+        next();
       } else {
         res.status(200).send([]);
       }
@@ -96,7 +96,7 @@ async function processaBusca(parametros) {
 
   if (nomeAutor) {
     const buscaAutor = {};
-    buscaAutor.nome = {$regex: nomeAutor, $options: "i"};
+    buscaAutor.nome = { $regex: nomeAutor, $options: "i" };
     const autores = await autor.findOne(buscaAutor);
 
     if (autores !== null) {
